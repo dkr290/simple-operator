@@ -15,12 +15,6 @@ func handler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handlerv(w http.ResponseWriter, r *http.Request) {
-	if _, err := fmt.Fprintf(w, "<h1 style='font-size:24px;'>Version: %s</h1>\n", v); err != nil {
-		log.Fatal(err)
-	}
-}
-
 func main() {
 	v = os.Getenv("VERSION")
 	if v == "" {
@@ -28,7 +22,6 @@ func main() {
 	}
 
 	http.HandleFunc("/", handler)
-	http.HandleFunc("/"+v, handlerv)
 	port := ":9090"
 	fmt.Println("Server running on", port)
 	if err := http.ListenAndServe(port, nil); err != nil {
