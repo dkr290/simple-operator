@@ -7,7 +7,7 @@ metadata:
   name: simpleapi-sample
   namespace: default
 spec:
-  image: "<registry>/go-simple-app:v4"
-  version: "v4"
+  image: "aabccontainerregistry.azurecr.io/go-simple-app:v10"
+  version: "v10"
   port: 9090
   replicas: 1

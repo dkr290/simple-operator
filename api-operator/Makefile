@@ -142,7 +142,12 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build --progress=plain -t ${IMG} .
+
+.PHONY: docker-build-zs
+docker-build-zs: ## Build docker image with the manager.
+	$(CONTAINER_TOOL) build --progress=plain -t ${IMG} -f Dockerfile-zscaller.dockerfile .
+
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
