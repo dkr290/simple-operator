@@ -1,0 +1,13 @@
+apiVersion: apps.api.test/v1alpha1
+kind: Simpleapi
+metadata:
+  labels:
+    app.kubernetes.io/name: api-operator
+    app.kubernetes.io/managed-by: kustomize
+  name: simpleapi-sample
+  namespace: default
+spec:
+  image: "<registry>/go-simple-app:v4"
+  version: "v4"
+  port: 9090
+  replicas: 1
