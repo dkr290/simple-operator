@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -82,87 +83,42 @@ func (r *SimpleapiReconciler) Reconcile(
 		logger.Error(err, "Failed to list Deployments")
 		return ctrl.Result{}, err
 	}
+	// Always create new deployment with unique timestamp
+	timestamp := time.Now().Unix()
 
-	// get the active current version from the Deployment byt version= key
-	existingVersions := map[string]*appsv1.Deployment{}
-	for k, v := range deploymentList.Items {
-		if ver, exists := v.Labels[versionLabel]; exists {
-			existingVersions[ver] = &deploymentList.Items[k]
-		}
+	// adding new deployment, this is only construct
+	newDeployment := r.constructDeployment(SimpleapiApp, timestamp)
+	// setting appVersion as owner for garbage collection best practices
+	if err := controllerutil.SetControllerReference(&SimpleapiApp, newDeployment, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.Create(ctx, newDeployment); err != nil {
+		logger.Error(err, "Failed to create Deployment", "Deployment", newDeployment.Name)
+		return ctrl.Result{}, err
+	}
+	// Create corresponding Service.
+	newService := r.constructService(SimpleapiApp, timestamp)
+	if err := controllerutil.SetControllerReference(&SimpleapiApp, newService, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+	if err := r.Create(ctx, newService); err != nil {
+		logger.Error(err, "Failed to create Service", "Service", newService.Name)
+		return ctrl.Result{}, err
 	}
 
-	desiredVersion := SimpleapiApp.Spec.Version
-	// If the desired version is not deployed, create new Deployment and respective Service. We just do ingress mapping after
-	if _, exists := existingVersions[desiredVersion]; !exists {
-		logger.Info("Creating new deployment and service for version", "version", desiredVersion)
-		// adding new deployment, this is only construct
-		deployment := r.constructDeployment(SimpleapiApp)
-		// setting appVersion as owner for garbage collection best practices
-		if err := controllerutil.SetControllerReference(&SimpleapiApp, deployment, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		if err := r.Create(ctx, deployment); err != nil {
-			logger.Error(err, "Failed to create Deployment", "Deployment", deployment)
-			return ctrl.Result{}, err
-		}
-		// creating the connecting service
-		// creating the service --------------------------------
-
-		service := r.constructService(SimpleapiApp)
-		if err := controllerutil.SetControllerReference(&SimpleapiApp, service, r.Scheme); err != nil {
-			return ctrl.Result{}, err
-		}
-		// actual creation of the service was missing so adding
-		if err := r.Create(ctx, service); err != nil {
-			logger.Error(err, "Failed to create Service", "Service", service)
-			return ctrl.Result{}, err
-		}
-		// adding desired version ,adding to our collection of existing versions
-		existingVersions[desiredVersion] = deployment
-
+	// Re-list deployments to capture the new state.
+	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": appLabel}); err != nil {
+		return ctrl.Result{}, err
 	}
+	// Extract last two versions based on timestamps.
+	sortedDeployments := sortDeploymentsByTimestamp(deploymentList.Items)
+	latestVersions := extractLatestVersions(sortedDeployments)
 
-	// Sort the versions (assumes versions in this application are only in the form of like "v21", "v22", etc.)
-	sortedVersions := sortVersions(existingVersions)
-	if len(sortedVersions) > 2 {
-		toDelete := sortedVersions[:len(sortedVersions)-2]
-		for _, ver := range toDelete {
-			if ver == desiredVersion {
-				// trying to fix here the rollback case (rollback case)
-				logger.Info("Existing versions found:", "versions", sortedVersions)
-				continue
-			}
-			logger.Info("Deleting old deployment and service for version", "version", ver)
-			// Delete the old deployment
-			if dep, ok := existingVersions[ver]; ok {
-				if err := r.Delete(ctx, dep); err != nil {
-					logger.Error(err, "Failed to delete Deployment", "version", ver)
-				}
-			}
+	// Delete older versions beyond the latest two.
+	r.cleanupOldDeployments(ctx, sortedDeployments)
 
-			// Delete the old service which should be associated with the old deployment
-
-			svcName := serviceName(ver)
-			var svc corev1.Service
-			if err := r.Get(ctx, client.ObjectKey{Namespace: SimpleapiApp.Namespace, Name: svcName}, &svc); err == nil {
-				if err := r.Delete(ctx, &svc); err != nil {
-					logger.Error(
-						err,
-						"Failed to delete Service",
-						"Service",
-						svcName,
-						"version",
-						ver,
-					)
-					return ctrl.Result{}, err
-				}
-			}
-		}
-
-		// Keep only the newest two versions.
-		sortedVersions = sortedVersions[len(sortedVersions)-2:]
-	}
-	if err := r.reconcileIngress(ctx, sortedVersions, req.Namespace, &SimpleapiApp); err != nil {
+	// Reconcile Ingress paths to reflect the latest two versions.
+	if err := r.reconcileIngress(ctx, latestVersions, SimpleapiApp.Namespace, &SimpleapiApp); err != nil {
 		logger.Error(err, "Failed to reconcile Ingress")
 		return ctrl.Result{}, err
 	}

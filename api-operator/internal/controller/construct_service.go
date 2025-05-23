@@ -11,10 +11,11 @@ import (
 )
 
 func (r *SimpleapiReconciler) constructService(
-	SimpleApiApp appsv1alpha1.Simpleapi,
+	SimpleApiApp appsv1alpha1.Simpleapi, timestamp int64,
 ) *corev1.Service {
+	name := fmt.Sprintf("%s-%s-%d", appLabel+"-svc", SimpleApiApp.Spec.Version, timestamp)
 	metadata := metav1.ObjectMeta{
-		Name:      serviceName(SimpleApiApp.Spec.Version),
+		Name:      name,
 		Namespace: SimpleApiApp.Namespace,
 		Labels: map[string]string{
 			"app":     appLabel,
