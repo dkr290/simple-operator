@@ -55,9 +55,9 @@ func (r *SimpleapiReconciler) constructIngress(
 	var paths []networkingv1.HTTPIngressPath
 	for _, ver := range versions {
 		path := networkingv1.HTTPIngressPath{
-			Path: "/" + ver,
+			Path: "/api/" + ver,
 			PathType: func() *networkingv1.PathType {
-				pt := networkingv1.PathTypePrefix
+				pt := networkingv1.PathTypeImplementationSpecific
 				return &pt
 			}(),
 			Backend: networkingv1.IngressBackend{
@@ -73,10 +73,10 @@ func (r *SimpleapiReconciler) constructIngress(
 	}
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      ingressName,
-			Namespace: namespace,
+			Name:        ingressName,
+			Namespace:   namespace,
 			Annotations: map[string]string{
-				"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				//	"nginx.ingress.kubernetes.io/rewrite-target": "/",
 			},
 		},
 		Spec: networkingv1.IngressSpec{
