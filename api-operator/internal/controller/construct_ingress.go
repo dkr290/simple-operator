@@ -11,6 +11,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	networkingv1 "k8s.io/api/networking/v1"
+	// for gateway api networkingv1 "sigs.k8s.io/gateway-api/apis/v1"
 )
 
 const (
@@ -53,7 +54,9 @@ func (r *SimpleapiReconciler) constructIngress(
 	SimpleApiApp *appsv1alpha1.Simpleapi,
 ) *networkingv1.Ingress {
 	var paths []networkingv1.HTTPIngressPath
+
 	for _, ver := range versions {
+
 		path := networkingv1.HTTPIngressPath{
 			Path: "/api/" + ver,
 			PathType: func() *networkingv1.PathType {
