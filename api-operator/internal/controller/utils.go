@@ -8,23 +8,37 @@ import (
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
+	apierrors "k8s.io/apimachinery/pkg/api/errors"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-// sortVersions sorts the version strings (assuming formats like "v21", "v22") Only thoose are accepted in this application
+// sortVersions sorts the version strings (assuming formats like "v21", "v22") // so with 2 works and keeps them by timestamp
 
 func sortDeploymentsByTimestamp(deployments []appsv1.Deployment) []appsv1.Deployment {
-	// Sort deployments by "lastDeployedAt" annotation (or fallback to creation timestamp).
+	// Sort deployments by "lastDeployedAt" annotation (or fallback to creation timestamp not tested yet).
 	sort.SliceStable(deployments, func(i, j int) bool {
-		// Try parsing the annotation as an integer timestamp
-		ti, err1 := strconv.ParseInt(deployments[i].Annotations["lastDeployedAt"], 10, 64)
-		tj, err2 := strconv.ParseInt(deployments[j].Annotations["lastDeployedAt"], 10, 64)
+		annI, okI := deployments[i].Annotations["lastDeployedAt"]
+		annJ, okJ := deployments[j].Annotations["lastDeployedAt"]
 
-		if err1 == nil && err2 == nil {
-			return ti < tj // Sort by timestamp
+		if okI && okJ {
+			ti, err1 := strconv.ParseInt(annI, 10, 64)
+			tj, err2 := strconv.ParseInt(annJ, 10, 64)
+
+			// Both annotations are parsable as integers
+			if err1 == nil && err2 == nil {
+				if ti == tj {
+					// If timestamps are identical, use CreationTimestamp as a tie-breaker
+					return deployments[i].CreationTimestamp.Before(
+						&deployments[j].CreationTimestamp,
+					)
+				}
+				return ti < tj // Sort by "lastDeployedAt" timestamp (ascending: older first)
+			}
 		}
 
-		// Fallback to creation timestamp if annotations are missing
+		// Fallback to creation timestamp if annotations are missing,
+		// TODO to test this
 		return deployments[i].CreationTimestamp.Before(&deployments[j].CreationTimestamp)
 	})
 
@@ -53,20 +67,47 @@ func (r *SimpleapiReconciler) cleanupOldDeployments(
 	ctx context.Context,
 	deployments []appsv1.Deployment,
 ) {
+	logger := log.FromContext(ctx)
 	if len(deployments) <= 2 {
 		return
 	}
 	oldDeployments := deployments[:len(deployments)-2]
 	for _, oldDep := range oldDeployments {
-		_ = r.Delete(ctx, &oldDep)
-		oldServiceName := serviceNameFromDeploymentName(oldDep.Name)
-		var oldSvc corev1.Service
-		if err := r.Get(ctx, client.ObjectKey{Namespace: oldDep.Namespace, Name: oldServiceName}, &oldSvc); err == nil {
-			_ = r.Delete(ctx, &oldSvc)
+		depToDelete := oldDep // Use a new variable for the loop to avoid issues with pointers in loops if not careful
+		logger.Info(
+			"Deleting old deployment",
+			"deployment",
+			depToDelete.Name,
+			"namespace",
+			depToDelete.Namespace,
+		)
+
+		if err := r.Delete(ctx, &depToDelete); err != nil && !apierrors.IsNotFound(err) {
+			logger.Error(err, "Failed to delete old deployment", "deployment", depToDelete.Name)
+			// maybe to see how to return error as improvement
+		}
+
+		oldServiceName := serviceNameFromDeploymentName(depToDelete.Name)
+		oldSvc := &corev1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      oldServiceName,
+				Namespace: depToDelete.Namespace,
+			},
+		}
+		logger.Info(
+			"Attempting to delete old service",
+			"service",
+			oldServiceName,
+			"namespace",
+			depToDelete.Namespace,
+		)
+
+		if err := r.Delete(ctx, oldSvc); err == nil && !apierrors.IsNotFound(err) {
+			logger.Error(err, "Failed to delete old service", "service", oldServiceName)
 		}
 	}
 }
 
 func serviceNameFromDeploymentName(deploymentName string) string {
-	return strings.Replace(deploymentName, "my-api", "my-api-svc", 1)
+	return strings.Replace(deploymentName, "my-api", "my-api-service", 1)
 }
