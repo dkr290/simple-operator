@@ -1,0 +1,59 @@
+name: Docker build and push CI
+
+on:
+  push:
+    paths:
+      - "simple-api/**"
+
+    branches:
+      - main
+  pull_request:
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+env:
+  DOCKER_IMAGE_V1: ghcr.io/${{ github.repository }}/simple-api:v1
+  DOCKER_IMAGE_V2: ghcr.io/${{ github.repository }}/simple-api:v2
+  DOCKER_IMAGE_V3: ghcr.io/${{ github.repository }}/simple-api:v3
+  DOCKER_IMAGE_V4: ghcr.io/${{ github.repository }}/simple-api:v4
+  DOCKER_IMAGE_V5: ghcr.io/${{ github.repository }}/simple-api:v5
+  DOCKER_IMAGE_V6: ghcr.io/${{ github.repository }}/simple-api:v6
+
+jobs:
+  # This workflow contains a single job called "build"
+  build-goapp:
+    name: Build and push docker image
+    # The type of runner that the job will run on
+
+    runs-on: ubuntu-latest
+    outputs:
+      commit: ${{ steps.push-image.outputs.commit }}
+
+    # Steps represent a sequence of tasks that will be executed as part of the job
+    steps:
+      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
+      - uses: actions/checkout@v3
+
+      - name: docker version and build
+        run: |
+          cd api-operator/
+          docker -v
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V1
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V2
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V3
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V4
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V5
+          docker build . -f Dockerfile -t $DOCKER_IMAGE_V6
+          docker images -a
+
+      - if: github.event_name != 'pull_request'
+        name: docker login and push
+        id: push-image
+        run: |
+          echo "${{ github.token }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+          docker push $DOCKER_IMAGE_V1
+          docker push $DOCKER_IMAGE_V2
+          docker push $DOCKER_IMAGE_V3
+          docker push $DOCKER_IMAGE_V4
+          docker push $DOCKER_IMAGE_V5
+          docker push $DOCKER_IMAGE_V6

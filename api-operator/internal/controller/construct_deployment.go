@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"strings"
 
 	appsv1alpha1 "github.com/dkr290/simple-operator/api-operator/api/v1alpha1"
@@ -10,7 +11,7 @@ import (
 )
 
 func (r *SimpleapiReconciler) constructDeployment(
-	SimpleApiApp appsv1alpha1.Simpleapi,
+	SimpleApiApp appsv1alpha1.Simpleapi, timestamp int64,
 ) *appsv1.Deployment {
 	labels := map[string]string{
 		"app":     appLabel,
@@ -26,6 +27,9 @@ func (r *SimpleapiReconciler) constructDeployment(
 		Name:      "my-api-" + strings.ToLower(SimpleApiApp.Spec.Version),
 		Namespace: SimpleApiApp.Namespace,
 		Labels:    labels,
+		Annotations: map[string]string{
+			"lastDeployedAt": fmt.Sprintf("%d", timestamp),
+		},
 	}
 
 	specData := appsv1.DeploymentSpec{

@@ -11,7 +11,7 @@ import (
 )
 
 func (r *SimpleapiReconciler) constructService(
-	SimpleApiApp appsv1alpha1.Simpleapi,
+	SimpleApiApp appsv1alpha1.Simpleapi, timestamp int64,
 ) *corev1.Service {
 	metadata := metav1.ObjectMeta{
 		Name:      serviceName(SimpleApiApp.Spec.Version),
@@ -19,6 +19,9 @@ func (r *SimpleapiReconciler) constructService(
 		Labels: map[string]string{
 			"app":     appLabel,
 			"version": SimpleApiApp.Spec.Version,
+		},
+		Annotations: map[string]string{
+			"lastDeployedAt": fmt.Sprintf("%d", timestamp),
 		},
 	}
 	spec := corev1.ServiceSpec{
@@ -43,7 +46,8 @@ func (r *SimpleapiReconciler) constructService(
 	return svc
 }
 
-// returns a standardized Service name based on the version.
+// returns a standardized Service name based on the version, important for replacor in utils is th make version at the end.
+// TODO maybe for improvement
 func serviceName(version string) string {
-	return fmt.Sprintf("my-api-%s-service", strings.ToLower(version))
+	return fmt.Sprintf("my-api-service-%s", strings.ToLower(version))
 }
