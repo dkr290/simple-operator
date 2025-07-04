@@ -2,12 +2,13 @@ apiVersion: apps.api.test/v1alpha1
 kind: Simpleapi
 metadata:
   labels:
-    app.kubernetes.io/name: api-operator
-    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: my-api
+    app.kubernetes.io/managed-by: operator
+    app: my-api
   name: simpleapi-sample
   namespace: default
 spec:
-  image: "reg.azurecr.io/fast-demo:v25"
-  version: "v25"
+  image: "xxx.azurecr.io/fast-demo:v24"
+  version: "v24"
   port: 8000
   replicas: 1

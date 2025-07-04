@@ -22,7 +22,7 @@ func (r *SimpleapiReconciler) reconcileIngress(
 	ctx context.Context,
 	versions []string,
 	namespace string,
-	SimpleApiApp *appsv1alpha1.Simpleapi,
+	SimpleAPIApp *appsv1alpha1.Simpleapi,
 ) error {
 	ingress := &networkingv1.Ingress{}
 
@@ -31,18 +31,18 @@ func (r *SimpleapiReconciler) reconcileIngress(
 	// Check if the Ingress already existso
 	if errors.IsNotFound(err) {
 		// ingress does not exists and creating new one
-		ingress = r.constructIngress(versions, namespace, SimpleApiApp)
-		if err := controllerutil.SetControllerReference(SimpleApiApp, ingress, r.Scheme); err != nil {
+		ingress = r.constructIngress(versions, namespace, SimpleAPIApp)
+		if err := controllerutil.SetControllerReference(SimpleAPIApp, ingress, r.Scheme); err != nil {
 			return err
 		}
 		return r.Create(ctx, ingress)
 	} else if err != nil {
 		return err
 	}
-	newIngress := r.constructIngress(versions, namespace, SimpleApiApp)
+	newIngress := r.constructIngress(versions, namespace, SimpleAPIApp)
 	ingress.Spec = newIngress.Spec
 	// this is kind of ensure ownership because the ingress not gets deleted but all the others does
-	if err := controllerutil.SetControllerReference(SimpleApiApp, ingress, r.Scheme); err != nil {
+	if err := controllerutil.SetControllerReference(SimpleAPIApp, ingress, r.Scheme); err != nil {
 		return err
 	}
 	return r.Update(ctx, ingress)
@@ -51,9 +51,9 @@ func (r *SimpleapiReconciler) reconcileIngress(
 func (r *SimpleapiReconciler) constructIngress(
 	versions []string,
 	namespace string,
-	SimpleApiApp *appsv1alpha1.Simpleapi,
+	SimpleAPIApp *appsv1alpha1.Simpleapi,
 ) *networkingv1.Ingress {
-	var paths []networkingv1.HTTPIngressPath
+	paths := make([]networkingv1.HTTPIngressPath, len(versions))
 
 	for _, ver := range versions {
 
@@ -65,9 +65,9 @@ func (r *SimpleapiReconciler) constructIngress(
 			}(),
 			Backend: networkingv1.IngressBackend{
 				Service: &networkingv1.IngressServiceBackend{
-					Name: serviceName(ver),
+					Name: serviceName(ver, SimpleAPIApp.Labels["app"]),
 					Port: networkingv1.ServiceBackendPort{
-						Number: SimpleApiApp.Spec.Port,
+						Number: SimpleAPIApp.Spec.Port,
 					},
 				},
 			},

@@ -35,8 +35,6 @@ import (
 )
 
 const (
-	appLabel        = "my-api"
-	versionLabel    = "version"
 	ingressName     = "my-api-ingress"
 	imagePullsecret = "regcred"
 )
@@ -77,9 +75,9 @@ func (r *SimpleapiReconciler) Reconcile(
 		logger.Error(err, "Failed to get AppVersion")
 		return ctrl.Result{}, err
 	}
-	// List existing Deployments for the API using the label "app=my-api from the contants it is subject to change"
+	// List existing Deployments for the API using the label "app=my-api from the constants it is subject to change"
 	var deploymentList appsv1.DeploymentList
-	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": appLabel}); err != nil {
+	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": SimpleapiApp.Labels["app"]}); err != nil {
 		logger.Error(err, "Failed to list Deployments")
 		return ctrl.Result{}, err
 	}
@@ -107,7 +105,7 @@ func (r *SimpleapiReconciler) Reconcile(
 	}
 
 	// Re-list deployments to capture the new state.
-	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": appLabel}); err != nil {
+	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": SimpleapiApp.Labels["app"]}); err != nil {
 		return ctrl.Result{}, err
 	}
 	// Extract last two versions based on timestamps.

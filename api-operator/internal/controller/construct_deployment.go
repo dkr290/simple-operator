@@ -1,3 +1,4 @@
+// Package controller main engine package
 package controller
 
 import (
@@ -11,21 +12,21 @@ import (
 )
 
 func (r *SimpleapiReconciler) constructDeployment(
-	SimpleApiApp appsv1alpha1.Simpleapi, timestamp int64,
+	SimpleAPIApp appsv1alpha1.Simpleapi, timestamp int64,
 ) *appsv1.Deployment {
 	labels := map[string]string{
-		"app":     appLabel,
-		"version": SimpleApiApp.Spec.Version,
+		"app":     SimpleAPIApp.Labels["app"],
+		"version": SimpleAPIApp.Spec.Version,
 	}
 
 	replicas := int32(1)
-	if SimpleApiApp.Spec.Replicas != nil {
-		replicas = *SimpleApiApp.Spec.Replicas
+	if SimpleAPIApp.Spec.Replicas != nil {
+		replicas = *SimpleAPIApp.Spec.Replicas
 	}
 
 	objectMetaData := metav1.ObjectMeta{
-		Name:      "my-api-" + strings.ToLower(SimpleApiApp.Spec.Version),
-		Namespace: SimpleApiApp.Namespace,
+		Name:      "my-api-" + strings.ToLower(SimpleAPIApp.Spec.Version),
+		Namespace: SimpleAPIApp.Namespace,
 		Labels:    labels,
 		Annotations: map[string]string{
 			"lastDeployedAt": fmt.Sprintf("%d", timestamp),
@@ -45,9 +46,9 @@ func (r *SimpleapiReconciler) constructDeployment(
 				Containers: []corev1.Container{
 					{
 						Name:  "api",
-						Image: SimpleApiApp.Spec.Image,
+						Image: SimpleAPIApp.Spec.Image,
 						Ports: []corev1.ContainerPort{
-							{ContainerPort: SimpleApiApp.Spec.Port},
+							{ContainerPort: SimpleAPIApp.Spec.Port},
 						},
 					},
 				},
