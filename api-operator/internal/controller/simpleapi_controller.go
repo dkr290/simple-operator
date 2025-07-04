@@ -35,9 +35,6 @@ import (
 )
 
 const (
-	appLabel        = "my-api"
-	versionLabel    = "version"
-	ingressName     = "my-api-ingress"
 	imagePullsecret = "regcred"
 )
 
@@ -77,9 +74,9 @@ func (r *SimpleapiReconciler) Reconcile(
 		logger.Error(err, "Failed to get AppVersion")
 		return ctrl.Result{}, err
 	}
-	// List existing Deployments for the API using the label "app=my-api from the contants it is subject to change"
+	// List existing Deployments for the API using the label "app=my-api from the constants it is subject to change"
 	var deploymentList appsv1.DeploymentList
-	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": appLabel}); err != nil {
+	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": SimpleapiApp.Labels["app"]}); err != nil {
 		logger.Error(err, "Failed to list Deployments")
 		return ctrl.Result{}, err
 	}
@@ -92,22 +89,43 @@ func (r *SimpleapiReconciler) Reconcile(
 	if err := controllerutil.SetControllerReference(&SimpleapiApp, newDeployment, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// Check if deployment already exists before creating
 	if err := r.Create(ctx, newDeployment); err != nil {
-		logger.Error(err, "Failed to create Deployment", "Deployment", newDeployment.Name)
-		return ctrl.Result{}, err
+		if errors.IsAlreadyExists(err) {
+			logger.Info(
+				"Deployment already exists, skipping creation",
+				"Deployment",
+				newDeployment.Name,
+			)
+		} else {
+			logger.Error(err, "Failed to create Deployment", "Deployment", newDeployment.Name)
+			return ctrl.Result{}, err
+		}
+	} else {
+		logger.Info("Successfully created new deployment", "Deployment", newDeployment.Name)
 	}
+
 	// Create corresponding Service.
 	newService := r.constructService(SimpleapiApp, timestamp)
 	if err := controllerutil.SetControllerReference(&SimpleapiApp, newService, r.Scheme); err != nil {
 		return ctrl.Result{}, err
 	}
+
+	// Check if service already exists before creating
 	if err := r.Create(ctx, newService); err != nil {
-		logger.Error(err, "Failed to create Service", "Service", newService.Name)
-		return ctrl.Result{}, err
+		if errors.IsAlreadyExists(err) {
+			logger.Info("Service already exists, skipping creation", "Service", newService.Name)
+		} else {
+			logger.Error(err, "Failed to create Service", "Service", newService.Name)
+			return ctrl.Result{}, err
+		}
+	} else {
+		logger.Info("Successfully created new service", "Service", newService.Name)
 	}
 
 	// Re-list deployments to capture the new state.
-	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": appLabel}); err != nil {
+	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": SimpleapiApp.Labels["app"]}); err != nil {
 		return ctrl.Result{}, err
 	}
 	// Extract last two versions based on timestamps.

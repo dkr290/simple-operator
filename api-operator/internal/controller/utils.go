@@ -109,5 +109,5 @@ func (r *SimpleapiReconciler) cleanupOldDeployments(
 }
 
 func serviceNameFromDeploymentName(deploymentName string) string {
-	return strings.Replace(deploymentName, "my-api", "my-api-service", 1)
+	return strings.Replace(deploymentName, deploymentName, deploymentName+"-svc", 1)
 }

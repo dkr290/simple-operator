@@ -1,3 +1,4 @@
+// Package controller main engine package
 package controller
 
 import (
@@ -11,21 +12,24 @@ import (
 )
 
 func (r *SimpleapiReconciler) constructDeployment(
-	SimpleApiApp appsv1alpha1.Simpleapi, timestamp int64,
+	SimpleAPIApp appsv1alpha1.Simpleapi, timestamp int64,
 ) *appsv1.Deployment {
 	labels := map[string]string{
-		"app":     appLabel,
-		"version": SimpleApiApp.Spec.Version,
+		"app":     SimpleAPIApp.Labels["app"],
+		"version": SimpleAPIApp.Spec.Version,
 	}
 
 	replicas := int32(1)
-	if SimpleApiApp.Spec.Replicas != nil {
-		replicas = *SimpleApiApp.Spec.Replicas
+	if SimpleAPIApp.Spec.Replicas != nil {
+		replicas = *SimpleAPIApp.Spec.Replicas
 	}
 
 	objectMetaData := metav1.ObjectMeta{
-		Name:      "my-api-" + strings.ToLower(SimpleApiApp.Spec.Version),
-		Namespace: SimpleApiApp.Namespace,
+		Name: deploymentName(
+			strings.ToLower(SimpleAPIApp.Spec.Version),
+			SimpleAPIApp.Name,
+		),
+		Namespace: SimpleAPIApp.Namespace,
 		Labels:    labels,
 		Annotations: map[string]string{
 			"lastDeployedAt": fmt.Sprintf("%d", timestamp),
@@ -44,10 +48,10 @@ func (r *SimpleapiReconciler) constructDeployment(
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "api",
-						Image: SimpleApiApp.Spec.Image,
+						Name:  SimpleAPIApp.Name,
+						Image: SimpleAPIApp.Spec.Image,
 						Ports: []corev1.ContainerPort{
-							{ContainerPort: SimpleApiApp.Spec.Port},
+							{ContainerPort: SimpleAPIApp.Spec.Port},
 						},
 					},
 				},
@@ -66,4 +70,8 @@ func (r *SimpleapiReconciler) constructDeployment(
 	}
 
 	return deploy
+}
+
+func deploymentName(version string, deploymentName string) string {
+	return fmt.Sprintf(deploymentName+"-%s", strings.ToLower(version))
 }
