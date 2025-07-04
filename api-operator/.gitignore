@@ -26,3 +26,4 @@ go.work
 *.swo
 *~
 zscaler-root-ca.crt
+apps-deploy-crd.yaml

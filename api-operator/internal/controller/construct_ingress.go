@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	appsv1alpha1 "github.com/dkr290/simple-operator/api-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -27,7 +28,11 @@ func (r *SimpleapiReconciler) reconcileIngress(
 	ingress := &networkingv1.Ingress{}
 
 	// Check if the Ingress already exists
-	err := r.Get(ctx, client.ObjectKey{Namespace: namespace, Name: ingressName}, ingress)
+	err := r.Get(
+		ctx,
+		client.ObjectKey{Namespace: namespace, Name: getIngressName(SimpleAPIApp)},
+		ingress,
+	)
 	// Check if the Ingress already existso
 	if errors.IsNotFound(err) {
 		// ingress does not exists and creating new one
@@ -55,7 +60,7 @@ func (r *SimpleapiReconciler) constructIngress(
 ) *networkingv1.Ingress {
 	paths := make([]networkingv1.HTTPIngressPath, len(versions))
 
-	for _, ver := range versions {
+	for i, ver := range versions {
 
 		path := networkingv1.HTTPIngressPath{
 			Path: "/api/" + ver,
@@ -65,18 +70,18 @@ func (r *SimpleapiReconciler) constructIngress(
 			}(),
 			Backend: networkingv1.IngressBackend{
 				Service: &networkingv1.IngressServiceBackend{
-					Name: serviceName(ver, SimpleAPIApp.Labels["app"]),
+					Name: serviceName(ver, SimpleAPIApp.Name),
 					Port: networkingv1.ServiceBackendPort{
 						Number: SimpleAPIApp.Spec.Port,
 					},
 				},
 			},
 		}
-		paths = append(paths, path)
+		paths[i] = path
 	}
 	ingress := &networkingv1.Ingress{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:        ingressName,
+			Name:        getIngressName(SimpleAPIApp),
 			Namespace:   namespace,
 			Annotations: map[string]string{
 				//	"nginx.ingress.kubernetes.io/rewrite-target": "/",
@@ -103,4 +108,8 @@ func (r *SimpleapiReconciler) constructIngress(
 		},
 	}
 	return ingress
+}
+
+func getIngressName(SimpleAPIApp *appsv1alpha1.Simpleapi) string {
+	return fmt.Sprintf("%s-ingress", SimpleAPIApp.Name)
 }

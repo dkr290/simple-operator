@@ -25,7 +25,10 @@ func (r *SimpleapiReconciler) constructDeployment(
 	}
 
 	objectMetaData := metav1.ObjectMeta{
-		Name:      "my-api-" + strings.ToLower(SimpleAPIApp.Spec.Version),
+		Name: deploymentName(
+			strings.ToLower(SimpleAPIApp.Spec.Version),
+			SimpleAPIApp.Name,
+		),
 		Namespace: SimpleAPIApp.Namespace,
 		Labels:    labels,
 		Annotations: map[string]string{
@@ -45,7 +48,7 @@ func (r *SimpleapiReconciler) constructDeployment(
 			Spec: corev1.PodSpec{
 				Containers: []corev1.Container{
 					{
-						Name:  "api",
+						Name:  SimpleAPIApp.Name,
 						Image: SimpleAPIApp.Spec.Image,
 						Ports: []corev1.ContainerPort{
 							{ContainerPort: SimpleAPIApp.Spec.Port},
@@ -67,4 +70,8 @@ func (r *SimpleapiReconciler) constructDeployment(
 	}
 
 	return deploy
+}
+
+func deploymentName(version string, deploymentName string) string {
+	return fmt.Sprintf(deploymentName+"-%s", strings.ToLower(version))
 }
