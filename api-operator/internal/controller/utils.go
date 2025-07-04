@@ -4,7 +4,6 @@ import (
 	"context"
 	"sort"
 	"strconv"
-	"strings"
 
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -102,12 +101,12 @@ func (r *SimpleapiReconciler) cleanupOldDeployments(
 			depToDelete.Namespace,
 		)
 
-		if err := r.Delete(ctx, oldSvc); err == nil && !apierrors.IsNotFound(err) {
+		if err := r.Delete(ctx, oldSvc); err != nil && !apierrors.IsNotFound(err) {
 			logger.Error(err, "Failed to delete old service", "service", oldServiceName)
 		}
 	}
 }
 
 func serviceNameFromDeploymentName(deploymentName string) string {
-	return strings.Replace(deploymentName, deploymentName, deploymentName+"-svc", 1)
+	return deploymentName + "-svc"
 }
