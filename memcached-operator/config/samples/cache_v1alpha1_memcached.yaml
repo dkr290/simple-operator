@@ -1,0 +1,13 @@
+apiVersion: cache.example.com/v1alpha1
+kind: Memcached
+metadata:
+  labels:
+    app.kubernetes.io/name: memcached-operator
+    app.kubernetes.io/managed-by: kustomize
+    app: memcahed-server
+  name: memcached-sample
+spec:
+  containerPort: 11211
+  size: 1
+  image: memcached:1.6.38
+  imagePullSecret: {}
