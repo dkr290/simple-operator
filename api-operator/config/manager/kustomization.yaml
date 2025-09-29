@@ -1,8 +1,8 @@
 resources:
-  - manager.yaml
+- manager.yaml
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 images:
-  - name: controller
-    newName: x.azurecr.io/api-operator-timestamp
-    newTag: 1.4.0
+- name: controller
+  newName: aareplicatedregistry.azurecr.io/eg-api-operator
+  newTag: 1.7.0

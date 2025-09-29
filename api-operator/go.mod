@@ -1,8 +1,6 @@
 module github.com/dkr290/simple-operator/api-operator
 
-go 1.24.0
-
-toolchain go1.24.3
+go 1.25.1
 
 require (
 	github.com/onsi/ginkgo/v2 v2.22.0
@@ -12,6 +10,7 @@ require (
 	k8s.io/client-go v0.32.3
 	k8s.io/utils v0.0.0-20241104100929-3ea5e8cea738
 	sigs.k8s.io/controller-runtime v0.20.4
+	sigs.k8s.io/gateway-api v1.3.0
 )
 
 require (

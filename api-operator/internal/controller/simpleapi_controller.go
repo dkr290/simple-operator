@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -30,12 +31,9 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
+	gatewayv1 "sigs.k8s.io/gateway-api/apis/v1"
 
 	appsv1alpha1 "github.com/dkr290/simple-operator/api-operator/api/v1alpha1"
-)
-
-const (
-	imagePullsecret = "regcred"
 )
 
 // SimpleapiReconciler reconciles a Simpleapi object
@@ -66,6 +64,7 @@ func (r *SimpleapiReconciler) Reconcile(
 	// trying to fetch appversion CR instance, which is like custom CRD called Simpleapi
 	// that is defined in v1alpha1 simpleapi_types
 	var SimpleapiApp appsv1alpha1.Simpleapi
+
 	if err := r.Get(ctx, req.NamespacedName, &SimpleapiApp); err != nil {
 		if errors.IsNotFound(err) {
 			logger.Info("AppVersion resource not found. Ignoring since object must be deleted")
@@ -74,6 +73,26 @@ func (r *SimpleapiReconciler) Reconcile(
 		logger.Error(err, "Failed to get AppVersion")
 		return ctrl.Result{}, err
 	}
+	sa := r.constructServiceAccount(SimpleapiApp)
+	if err := controllerutil.SetControllerReference(&SimpleapiApp, sa, r.Scheme); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Create(ctx, sa); err != nil {
+		if errors.IsAlreadyExists(err) {
+			logger.Info(
+				"Service Account exists, skipping creation",
+				"ServiceAccount",
+				sa.Name,
+			)
+		} else {
+			logger.Error(err, "Failed to create Service account", "ServiceAccount", sa.Name)
+			return ctrl.Result{}, err
+		}
+	} else {
+		logger.Info("Successfully created new deployment", "Deployment", sa.Name)
+	}
+
 	// List existing Deployments for the API using the label "app=my-api from the constants it is subject to change"
 	var deploymentList appsv1.DeploymentList
 	if err := r.List(ctx, &deploymentList, client.MatchingLabels{"app": SimpleapiApp.Labels["app"]}); err != nil {
@@ -136,9 +155,25 @@ func (r *SimpleapiReconciler) Reconcile(
 	r.cleanupOldDeployments(ctx, sortedDeployments)
 
 	// Reconcile Ingress paths to reflect the latest two versions.
-	if err := r.reconcileIngress(ctx, latestVersions, SimpleapiApp.Namespace, &SimpleapiApp); err != nil {
-		logger.Error(err, "Failed to reconcile Ingress")
-		return ctrl.Result{}, err
+	switch SimpleapiApp.Spec.IngressType {
+	case "ingress":
+		if err := r.reconcileIngress(ctx, latestVersions, SimpleapiApp.Namespace, &SimpleapiApp); err != nil {
+			logger.Error(err, "Failed to reconcile Ingress")
+			return ctrl.Result{}, err
+		}
+	case "httproute":
+		if err := r.reconcileHTTPRoute(ctx, latestVersions, SimpleapiApp.Namespace, &SimpleapiApp); err != nil {
+			logger.Error(err, "Failed to Reconcile httproute")
+			return ctrl.Result{}, err
+		}
+	default:
+		logger.Error(
+			fmt.Errorf("error"),
+			"Error missing spec value for IngressType either httproute or ingress",
+		)
+		return ctrl.Result{}, errors.NewBadRequest(
+			"Error missing spec value for IngressType either httproute or ingress",
+		)
 	}
 
 	return ctrl.Result{}, nil
@@ -151,5 +186,6 @@ func (r *SimpleapiReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&appsv1.Deployment{}).
 		Owns(&corev1.Service{}).
 		Owns(&networkingv1.Ingress{}).
+		Owns(&gatewayv1.GatewayClass{}).
 		Complete(r)
 }

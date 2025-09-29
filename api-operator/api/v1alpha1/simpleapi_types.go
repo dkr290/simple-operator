@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -29,10 +30,22 @@ type SimpleapiSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Foo is an example field of Simpleapi. Edit simpleapi_types.go to remove/update
-	Image    string `json:"image"`
-	Version  string `json:"version"`
-	Port     int32  `json:"port"`
-	Replicas *int32 `json:"replicas"`
+	Image                 string                      `json:"image"`
+	Version               string                      `json:"version"`
+	Port                  int32                       `json:"port"`
+	Replicas              *int32                      `json:"replicas"`
+	IngressType           string                      `json:"ingressType"                     example:"httproute or ingress"` // httproute or ingress
+	EnvoyGateway          string                      `json:"envoyGateway,omitempty"`
+	EnvoyGatewayNamespace string                      `json:"envoyGatewayNamespace,omitempty"`
+	ServiceAccountName    string                      `json:"serviceAccount"`
+	ImagePullPolicy       corev1.PullPolicy           `json:"imagepullPolicy,omitempty"`
+	Resources             corev1.ResourceRequirements `json:"resources"`
+	PodSecurityContext    *corev1.PodSecurityContext  `json:"podSecurityContext"`
+	StartupProbe          *corev1.Probe               `json:"startupProbe"`
+	ImagePullSecret       string                      `json:"imagePullSecret,omitempty"                                      doc:"for local testing"`
+	Affinity              *corev1.Affinity            `json:"affinity"`
+	Tolerations           []corev1.Toleration         `json:"tolerations"`
+	IngressHostName       string                      `json:"ingressHostName,omitempty"`
 }
 
 // SimpleapiStatus defines the observed state of Simpleapi
@@ -57,8 +70,8 @@ type Simpleapi struct {
 
 // SimpleapiList contains a list of Simpleapi
 type SimpleapiList struct {
-	metav1.TypeMeta `json:",inline"`
-	metav1.ListMeta `json:"metadata,omitempty"`
+	metav1.TypeMeta `            json:",inline"`
+	metav1.ListMeta `            json:"metadata,omitempty"`
 	Items           []Simpleapi `json:"items"`
 }
 

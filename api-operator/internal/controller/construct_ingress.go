@@ -65,7 +65,7 @@ func (r *SimpleapiReconciler) constructIngress(
 		path := networkingv1.HTTPIngressPath{
 			Path: "/api/" + ver,
 			PathType: func() *networkingv1.PathType {
-				pt := networkingv1.PathTypeImplementationSpecific
+				pt := networkingv1.PathTypePrefix
 				return &pt
 			}(),
 			Backend: networkingv1.IngressBackend{
@@ -79,33 +79,64 @@ func (r *SimpleapiReconciler) constructIngress(
 		}
 		paths[i] = path
 	}
-	ingress := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        getIngressName(SimpleAPIApp),
-			Namespace:   namespace,
-			Annotations: map[string]string{
-				//	"nginx.ingress.kubernetes.io/rewrite-target": "/",
+	var ingress *networkingv1.Ingress
+	if SimpleAPIApp.Spec.IngressHostName == "" {
+		ingress = &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        getIngressName(SimpleAPIApp),
+				Namespace:   namespace,
+				Annotations: map[string]string{
+					//	"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				},
 			},
-		},
-		Spec: networkingv1.IngressSpec{
-			IngressClassName: ptr.To(ingressClassName),
-			Rules: []networkingv1.IngressRule{
-				{
-					// Host: "my-api.bankingcircle.net",
-					IngressRuleValue: networkingv1.IngressRuleValue{
-						HTTP: &networkingv1.HTTPIngressRuleValue{
-							Paths: paths,
+			Spec: networkingv1.IngressSpec{
+				IngressClassName: ptr.To(ingressClassName),
+				Rules: []networkingv1.IngressRule{
+					{
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: paths,
+							},
 						},
 					},
 				},
+				// TLS: []networkingv1.IngressTLS{
+				// 	{
+				// 		Hosts:      []string{"my-api.bankingcircle.net"},
+				// 		SecretName: "my-api-tls-secret",
+				// 	},
+				// },
 			},
-			// TLS: []networkingv1.IngressTLS{
-			// 	{
-			// 		Hosts:      []string{"my-api.bankingcircle.net"},
-			// 		SecretName: "my-api-tls-secret",
-			// 	},
-			// },
-		},
+		}
+	} else {
+		ingress = &networkingv1.Ingress{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:        getIngressName(SimpleAPIApp),
+				Namespace:   namespace,
+				Annotations: map[string]string{
+					//	"nginx.ingress.kubernetes.io/rewrite-target": "/",
+				},
+			},
+			Spec: networkingv1.IngressSpec{
+				IngressClassName: ptr.To(ingressClassName),
+				Rules: []networkingv1.IngressRule{
+					{
+						Host: SimpleAPIApp.Spec.IngressHostName,
+						IngressRuleValue: networkingv1.IngressRuleValue{
+							HTTP: &networkingv1.HTTPIngressRuleValue{
+								Paths: paths,
+							},
+						},
+					},
+				},
+				// TLS: []networkingv1.IngressTLS{
+				// 	{
+				// 		Hosts:      []string{"my-api.bankingcircle.net"},
+				// 		SecretName: "my-api-tls-secret",
+				// 	},
+				// },
+			},
+		}
 	}
 	return ingress
 }

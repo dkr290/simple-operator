@@ -1,0 +1,41 @@
+apiVersion: apps.api.test/v1alpha1
+kind: Simpleapi
+metadata:
+  labels:
+    app.kubernetes.io/name: my-api
+    app.kubernetes.io/managed-by: operator
+    app: my-new-api
+  name: simpleapi-new
+  namespace: default
+spec:
+  image: "xxxxxxxxxxxxxxxxxxxxxxx/fast-demo"
+  version: "v23"
+  port: 8000
+  replicas: 1
+  envoyGateway: default-gateway
+  ingressType: httproute
+  envoyGatewayNamespace: envoy-gateway-system
+  #ingressHostName: "simpleapi.example.com"
+  imagePullSecret: regcred
+  serviceAccount: simpleapi-sa
+  resources:
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+      ephemeral-storage: 6Gi
+    requests:
+      cpu: 500m
+      memory: 256Mi
+  startupProbe:
+    httpGet:
+      path: "/"
+      port: 8000
+    failureThreshold: 20
+    periodSeconds: 10
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 3000
+    fsGroup: 2000
+  affinity: {}
+  tolerations: []

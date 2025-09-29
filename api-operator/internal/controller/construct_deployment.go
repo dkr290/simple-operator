@@ -9,6 +9,7 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/utils/ptr"
 )
 
 func (r *SimpleapiReconciler) constructDeployment(
@@ -19,6 +20,7 @@ func (r *SimpleapiReconciler) constructDeployment(
 		"version": SimpleAPIApp.Spec.Version,
 	}
 
+	var podSpec corev1.PodSpec
 	replicas := int32(1)
 	if SimpleAPIApp.Spec.Replicas != nil {
 		replicas = *SimpleAPIApp.Spec.Replicas
@@ -36,31 +38,33 @@ func (r *SimpleapiReconciler) constructDeployment(
 		},
 	}
 
+	serviceAccountName := SimpleAPIApp.Spec.ServiceAccountName
+	if serviceAccountName == "" {
+		serviceAccountName = "default"
+	}
+
+	imagePullPolicy := SimpleAPIApp.Spec.ImagePullPolicy
+	if imagePullPolicy == "" {
+		imagePullPolicy = corev1.PullIfNotPresent
+	}
+	imagePullSecret := SimpleAPIApp.Spec.ImagePullSecret
+
+	if imagePullSecret == "" {
+		podSpec = GetPodSpec(SimpleAPIApp, serviceAccountName, false, imagePullPolicy)
+	} else {
+		podSpec = GetPodSpec(SimpleAPIApp, serviceAccountName, true, imagePullPolicy)
+	}
 	specData := appsv1.DeploymentSpec{
 		Replicas: &replicas,
 		Selector: &metav1.LabelSelector{
 			MatchLabels: labels,
 		},
+
 		Template: corev1.PodTemplateSpec{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels: labels,
 			},
-			Spec: corev1.PodSpec{
-				Containers: []corev1.Container{
-					{
-						Name:  SimpleAPIApp.Name,
-						Image: SimpleAPIApp.Spec.Image,
-						Ports: []corev1.ContainerPort{
-							{ContainerPort: SimpleAPIApp.Spec.Port},
-						},
-					},
-				},
-				ImagePullSecrets: []corev1.LocalObjectReference{
-					{
-						Name: imagePullsecret,
-					},
-				},
-			},
+			Spec: podSpec,
 		},
 	}
 
@@ -74,4 +78,87 @@ func (r *SimpleapiReconciler) constructDeployment(
 
 func deploymentName(version string, deploymentName string) string {
 	return fmt.Sprintf(deploymentName+"-%s", strings.ToLower(version))
+}
+
+func GetPodSpec(
+	SimpleAPIApp appsv1alpha1.Simpleapi,
+	serviceAccountName string,
+	isImagePullSecret bool,
+	ImagePullPolicy corev1.PullPolicy,
+) corev1.PodSpec {
+	if isImagePullSecret {
+		return corev1.PodSpec{
+			AutomountServiceAccountToken: ptr.To(false),
+			ServiceAccountName:           serviceAccountName,
+			SecurityContext:              SimpleAPIApp.Spec.PodSecurityContext,
+			Containers: []corev1.Container{
+				{
+					Name: SimpleAPIApp.Name,
+					Image: fmt.Sprintf(
+						"%s:%s",
+						SimpleAPIApp.Spec.Image,
+						SimpleAPIApp.Spec.Version,
+					),
+					Ports: []corev1.ContainerPort{
+						{ContainerPort: SimpleAPIApp.Spec.Port},
+					},
+					StartupProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: SimpleAPIApp.Spec.StartupProbe.HTTPGet.Path,
+								Port: SimpleAPIApp.Spec.StartupProbe.HTTPGet.Port,
+							},
+						},
+						InitialDelaySeconds: SimpleAPIApp.Spec.StartupProbe.InitialDelaySeconds,
+						PeriodSeconds:       SimpleAPIApp.Spec.StartupProbe.PeriodSeconds,
+						FailureThreshold:    SimpleAPIApp.Spec.StartupProbe.FailureThreshold,
+					},
+					ImagePullPolicy: ImagePullPolicy,
+					Resources:       SimpleAPIApp.Spec.Resources,
+				},
+			},
+			Affinity:    SimpleAPIApp.Spec.Affinity,
+			Tolerations: SimpleAPIApp.Spec.Tolerations,
+
+			ImagePullSecrets: []corev1.LocalObjectReference{
+				{
+					Name: SimpleAPIApp.Spec.ImagePullSecret,
+				},
+			},
+		}
+	} else {
+		return corev1.PodSpec{
+			AutomountServiceAccountToken: ptr.To(false),
+			ServiceAccountName:           serviceAccountName,
+			SecurityContext:              SimpleAPIApp.Spec.PodSecurityContext,
+			Containers: []corev1.Container{
+				{
+					Name: SimpleAPIApp.Name,
+					Image: fmt.Sprintf(
+						"%s:%s",
+						SimpleAPIApp.Spec.Image,
+						SimpleAPIApp.Spec.Version,
+					),
+					Ports: []corev1.ContainerPort{
+						{ContainerPort: SimpleAPIApp.Spec.Port},
+					},
+					StartupProbe: &corev1.Probe{
+						ProbeHandler: corev1.ProbeHandler{
+							HTTPGet: &corev1.HTTPGetAction{
+								Path: SimpleAPIApp.Spec.StartupProbe.HTTPGet.Path,
+								Port: SimpleAPIApp.Spec.StartupProbe.HTTPGet.Port,
+							},
+						},
+						InitialDelaySeconds: SimpleAPIApp.Spec.StartupProbe.InitialDelaySeconds,
+						PeriodSeconds:       SimpleAPIApp.Spec.StartupProbe.PeriodSeconds,
+						FailureThreshold:    SimpleAPIApp.Spec.StartupProbe.FailureThreshold,
+					},
+					ImagePullPolicy: ImagePullPolicy,
+					Resources:       SimpleAPIApp.Spec.Resources,
+				},
+			},
+			Affinity:    SimpleAPIApp.Spec.Affinity,
+			Tolerations: SimpleAPIApp.Spec.Tolerations,
+		}
+	}
 }
